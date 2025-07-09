@@ -23,6 +23,9 @@ function WorkoutTracker({ user }: { user: User }) {
   const [showHistory, setShowHistory] = useState(false);
   const [workoutHistory, setWorkoutHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showGoFlash, setShowGoFlash] = useState(false);
+  const [showCountdownFlash, setShowCountdownFlash] = useState(false);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
   
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const elapsedRef = useRef<NodeJS.Timeout | null>(null);
@@ -31,7 +34,48 @@ function WorkoutTracker({ user }: { user: User }) {
   const repsPerSetRef = useRef(repsPerSet);
   const intervalSecondsRef = useRef(intervalSeconds);
   const hasTriggeredRef = useRef(false); // Prevent double triggering
+  const countdownTriggeredRef = useRef<Set<number>>(new Set()); // Track which countdown numbers have been triggered
+  const audioContextRef = useRef<AudioContext | null>(null);
   
+  // Initialize audio context once
+  const getAudioContext = () => {
+    if (typeof window !== 'undefined' && !audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioContextRef.current;
+  };
+  
+  // Audio countdown function
+  const playCountdownBeep = (count: number) => {
+    if (isAudioMuted) return; // Skip audio if muted
+    const audioContext = getAudioContext();
+    if (!audioContext) return;
+    
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Musical frequencies for more pleasant countdown
+    const frequencies = {
+      2: 500,  // Higher pitched similar tone
+      1: 500,  // Same as 2 for similarity
+      0: 659   // Higher pitched for final beep
+    };
+    
+    oscillator.frequency.setValueAtTime(frequencies[count as keyof typeof frequencies] || 500, audioContext.currentTime);
+    oscillator.type = 'triangle'; // Softer, more pleasant than sine
+    
+    // Consistent volume envelope
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.25, audioContext.currentTime + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.2);
+  };
+
   // Keep refs in sync
   useEffect(() => {
     repsPerSetRef.current = repsPerSet;
@@ -39,10 +83,17 @@ function WorkoutTracker({ user }: { user: User }) {
   
   useEffect(() => {
     intervalSecondsRef.current = intervalSeconds;
-    if (!isRunning) {
+    // Only reset timer if we're not running AND we haven't started a workout yet
+    if (!isRunning && !workoutStartTime) {
       setTimeRemainingMs(intervalSeconds * 1000);
     }
-  }, [intervalSeconds, isRunning]);
+  }, [intervalSeconds, isRunning, workoutStartTime]);
+
+  // Fix: Don't reset timeRemainingMs when pausing
+  const pauseWorkout = () => {
+    setIsRunning(false);
+    // Keep timeRemainingMs, currentSet, and totalReps as they are - don't reset timer
+  };
 
   useEffect(() => {
     if (isRunning) {
@@ -56,7 +107,30 @@ function WorkoutTracker({ user }: { user: User }) {
         const elapsed = now - (setStartTime || now);
         const remaining = (intervalSecondsRef.current * 1000) - elapsed;
         
+        // Trigger countdown beeps at 2, 1, 0 seconds remaining
+        const secondsRemaining = Math.ceil(remaining / 1000);
+        if (secondsRemaining <= 2 && secondsRemaining >= 0 && remaining > 0) {
+          if (!countdownTriggeredRef.current.has(secondsRemaining)) {
+            countdownTriggeredRef.current.add(secondsRemaining);
+            playCountdownBeep(secondsRemaining);
+            // Yellow flash for 2 and 1 second countdown
+            if (secondsRemaining === 2 || secondsRemaining === 1) {
+              setShowCountdownFlash(true);
+              setTimeout(() => setShowCountdownFlash(false), 200);
+            }
+          }
+        }
+        
         if (remaining <= 0 && !hasTriggeredRef.current) {
+          // Play the "0" beep before completing the set
+          if (!countdownTriggeredRef.current.has(0)) {
+            countdownTriggeredRef.current.add(0);
+            playCountdownBeep(0);
+            // Trigger green flash for "Go!"
+            setShowGoFlash(true);
+            setTimeout(() => setShowGoFlash(false), 300);
+          }
+          
           // Time's up - complete the set (only once)
           hasTriggeredRef.current = true;
           const actualDuration = now - (setStartTime || now);
@@ -74,6 +148,7 @@ function WorkoutTracker({ user }: { user: User }) {
           setSetStartTime(now); // Start new set timer
           setTimeRemainingMs(intervalSecondsRef.current * 1000);
           hasTriggeredRef.current = false; // Reset for next set
+          countdownTriggeredRef.current.clear(); // Reset countdown tracking for new set
         } else if (remaining > 0) {
           setTimeRemainingMs(remaining);
         }
@@ -115,9 +190,64 @@ function WorkoutTracker({ user }: { user: User }) {
     }
   };
 
-  const pauseWorkout = () => {
-    setIsRunning(false);
-    // Keep timeRemainingMs, currentSet, and totalReps as they are
+
+  const saveWorkout = async () => {
+    if (!workoutSets.length || !workoutStartTime) return;
+    
+    setIsSaving(true);
+    try {
+      const workoutData = {
+        user_id: user.id,
+        total_reps: totalReps,
+        total_duration_ms: totalElapsedMs,
+        session_date: new Date().toISOString(),
+        notes: `${workoutSets.length} sets completed`
+      };
+      
+      const { data: workout, error: workoutError } = await SupabaseService.createWorkout(workoutData);
+      
+      if (workoutError || !workout) {
+        throw new Error(workoutError?.message || 'Failed to create workout');
+      }
+      
+      // Save all sets
+      const setsData = workoutSets.map((set, index) => ({
+        workout_id: workout.id,
+        set_number: index + 1,
+        reps_per_set: set.reps,
+        interval_seconds: set.intervalSeconds,
+        actual_duration_ms: set.actualDurationMs,
+        timestamp: new Date(set.timestamp).toISOString()
+      }));
+      
+      const { error: setsError } = await SupabaseService.createWorkoutSets(setsData);
+      
+      if (setsError) {
+        throw new Error(setsError.message);
+      }
+      
+      alert('Workout saved successfully!');
+      resetWorkout();
+    } catch (error) {
+      console.error('Error saving workout:', error);
+      alert(`Failed to save workout: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const loadWorkoutHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await SupabaseService.getWorkoutsByUser(user.id, 20);
+      if (error) throw error;
+      setWorkoutHistory(data || []);
+    } catch (error) {
+      console.error('Error loading workout history:', error);
+      alert('Failed to load workout history');
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   const saveWorkout = async () => {
@@ -194,7 +324,8 @@ function WorkoutTracker({ user }: { user: User }) {
     const totalSeconds = Math.floor(milliseconds / 1000);
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const ms = Math.floor((milliseconds % 1000) / 10); // Show centiseconds (2 digits)
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}:${ms.toString().padStart(2, '0')}`;
   };
 
   const formatElapsedTime = (milliseconds: number) => {
@@ -285,11 +416,12 @@ function WorkoutTracker({ user }: { user: User }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
-      <div className="text-center max-w-md w-full">
+    <div className={`relative min-h-screen transition-all duration-300 ${showGoFlash ? 'bg-green-600' : showCountdownFlash ? 'bg-red-600' : 'bg-gray-900'}`}>
+      <div className="flex items-center justify-center p-4 pt-16 min-h-screen">
+        <div className="text-center max-w-md w-full text-white">
         
         {/* Navigation */}
-        <div className="mb-6">
+        <div className="mb-6 flex gap-3 justify-center">
           <button
             onClick={() => {
               setShowHistory(true);
@@ -298,6 +430,16 @@ function WorkoutTracker({ user }: { user: User }) {
             className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
           >
             View History
+          </button>
+          <button
+            onClick={() => setIsAudioMuted(!isAudioMuted)}
+            className={`px-4 py-2 rounded transition-colors ${
+              isAudioMuted 
+                ? 'bg-red-600 hover:bg-red-700' 
+                : 'bg-gray-600 hover:bg-gray-700'
+            } text-white`}
+          >
+            {isAudioMuted ? '🔇 Muted' : '🔊 Audio'}
           </button>
         </div>
         
@@ -381,6 +523,7 @@ function WorkoutTracker({ user }: { user: User }) {
             </button>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
