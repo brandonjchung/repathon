@@ -250,6 +250,65 @@ function WorkoutTracker({ user }: { user: User }) {
     }
   };
 
+  const saveWorkout = async () => {
+    if (!workoutSets.length || !workoutStartTime) return;
+    
+    setIsSaving(true);
+    try {
+      const workoutData = {
+        user_id: user.id,
+        total_reps: totalReps,
+        total_duration_ms: totalElapsedMs,
+        session_date: new Date().toISOString(),
+        notes: `${workoutSets.length} sets completed`
+      };
+      
+      const { data: workout, error: workoutError } = await SupabaseService.createWorkout(workoutData);
+      
+      if (workoutError || !workout) {
+        throw new Error(workoutError?.message || 'Failed to create workout');
+      }
+      
+      // Save all sets
+      const setsData = workoutSets.map((set, index) => ({
+        workout_id: workout.id,
+        set_number: index + 1,
+        reps_per_set: set.reps,
+        interval_seconds: set.intervalSeconds,
+        actual_duration_ms: set.actualDurationMs,
+        timestamp: new Date(set.timestamp).toISOString()
+      }));
+      
+      const { error: setsError } = await SupabaseService.createWorkoutSets(setsData);
+      
+      if (setsError) {
+        throw new Error(setsError.message);
+      }
+      
+      alert('Workout saved successfully!');
+      resetWorkout();
+    } catch (error) {
+      console.error('Error saving workout:', error);
+      alert(`Failed to save workout: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const loadWorkoutHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await SupabaseService.getWorkoutsByUser(user.id, 20);
+      if (error) throw error;
+      setWorkoutHistory(data || []);
+    } catch (error) {
+      console.error('Error loading workout history:', error);
+      alert('Failed to load workout history');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   const resetWorkout = () => {
     setIsRunning(false);
     setTimeRemainingMs(intervalSeconds * 1000);

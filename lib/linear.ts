@@ -333,6 +333,68 @@ class LinearAPI {
     const data = await this.makeRequest(query, variables);
     return data.team.states.nodes;
   }
+
+  async createProject(name: string, description: string, teamIds: string[]): Promise<any> {
+    const query = `
+      mutation ProjectCreate($input: ProjectCreateInput!) {
+        projectCreate(input: $input) {
+          success
+          project {
+            id
+            name
+            description
+            url
+            state
+            progress
+          }
+        }
+      }
+    `;
+
+    const variables = {
+      input: {
+        name,
+        description,
+        teamIds
+      }
+    };
+
+    const data = await this.makeRequest(query, variables);
+    
+    if (!data.projectCreate.success) {
+      throw new Error('Failed to create project');
+    }
+
+    return data.projectCreate.project;
+  }
+
+  async addIssueToProject(issueId: string, projectId: string): Promise<any> {
+    const query = `
+      mutation ProjectLinkCreate($input: ProjectLinkCreateInput!) {
+        projectLinkCreate(input: $input) {
+          success
+          projectLink {
+            id
+          }
+        }
+      }
+    `;
+
+    const variables = {
+      input: {
+        issueId,
+        projectId
+      }
+    };
+
+    const data = await this.makeRequest(query, variables);
+    
+    if (!data.projectLinkCreate.success) {
+      throw new Error('Failed to add issue to project');
+    }
+
+    return data.projectLinkCreate.projectLink;
+  }
 }
 
 export const linearAPI = new LinearAPI(process.env.LINEAR_API_TOKEN!);
