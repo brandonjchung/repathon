@@ -9,13 +9,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Types for our database schema
-export interface User {
-  id: string;
-  email: string;
-  created_at: string;
-  updated_at: string;
-}
+// Re-export Supabase's User type for consistency
+export type { User } from '@supabase/supabase-js';
 
 export interface Workout {
   id: string;
