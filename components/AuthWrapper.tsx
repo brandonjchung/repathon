@@ -5,7 +5,7 @@ import { SupabaseService } from '../lib/supabase-service';
 import { User } from '../lib/supabase';
 
 interface AuthWrapperProps {
-  children: (user: User) => React.ReactNode;
+  children: (user: User, onSignOut: () => void) => React.ReactNode;
 }
 
 export default function AuthWrapper({ children }: AuthWrapperProps) {
@@ -78,11 +78,11 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
         <div className="max-w-md w-full">
-          <h1 className="text-3xl font-bold text-center mb-8">Workout Tracker</h1>
+          <h1 className="text-3xl font-bold text-center mb-8 text-white">Repathon</h1>
           
           <form onSubmit={handleAuth} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Email</label>
+              <label className="block text-sm font-medium mb-2 text-white">Email</label>
               <input
                 type="email"
                 value={email}
@@ -94,7 +94,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-2">Password</label>
+              <label className="block text-sm font-medium mb-2 text-white">Password</label>
               <input
                 type="password"
                 value={password}
@@ -117,16 +117,16 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
               disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded"
             >
-              {loading ? 'Loading...' : (isLogin ? 'Sign In' : 'Sign Up')}
+              <span className="text-white">{loading ? 'Loading...' : (isLogin ? 'Sign In' : 'Sign Up')}</span>
             </button>
           </form>
 
           <div className="text-center mt-4">
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-blue-400 hover:text-blue-300"
+              className="text-blue-400 hover:text-blue-300 underline"
             >
-              {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+              <span className="text-blue-400 hover:text-blue-300">{isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}</span>
             </button>
           </div>
         </div>
@@ -136,18 +136,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <div className="absolute top-4 right-4">
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-300">{user.email}</span>
-          <button
-            onClick={handleSignOut}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm"
-          >
-            Sign Out
-          </button>
-        </div>
-      </div>
-      {children(user)}
+      {children(user, handleSignOut)}
     </div>
   );
 }

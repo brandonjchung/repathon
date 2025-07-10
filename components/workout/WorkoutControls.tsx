@@ -1,5 +1,6 @@
 import Button from '../ui/Button';
 import { WorkoutSet } from '../../hooks/useWorkout';
+import { motion } from 'framer-motion';
 
 interface WorkoutControlsProps {
   isRunning: boolean;
@@ -23,43 +24,54 @@ export default function WorkoutControls({
   onSave 
 }: WorkoutControlsProps) {
   return (
-    <div className="flex gap-3 justify-center flex-wrap">
-      <Button
-        variant="success"
-        size="lg"
-        onClick={onStart}
-        disabled={isRunning}
+    <div className="flex gap-2 justify-center items-center">
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ duration: 0.1 }}
       >
-        {totalElapsedMs > 0 && !isRunning ? 'Resume' : 'Start'}
-      </Button>
+        <Button
+          variant={isRunning ? "warning" : "success"}
+          size="lg"
+          onClick={isRunning ? onPause : onStart}
+          className="w-16 flex justify-center items-center"
+        >
+          <span className="text-2xl">
+            {isRunning ? '⏸' : '▶'}
+          </span>
+        </Button>
+      </motion.div>
       
-      <Button
-        variant="warning"
-        size="lg"
-        onClick={onPause}
-        disabled={!isRunning}
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ duration: 0.1 }}
       >
-        Pause
-      </Button>
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={onReset}
+        >
+          <span className="text-2xl">⟲</span>
+        </Button>
+      </motion.div>
       
-      <Button
-        variant="secondary"
-        size="lg"
-        onClick={onReset}
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ duration: 0.1 }}
       >
-        Reset
-      </Button>
-      
-      {workoutSets.length > 0 && (
         <Button
           variant="primary"
           size="lg"
           onClick={onSave}
-          disabled={isSaving || isRunning}
+          disabled={isSaving || isRunning || workoutSets.length === 0}
         >
-          {isSaving ? 'Saving...' : 'Save Workout'}
+          <span className="text-2xl">
+            {isSaving ? '⋯' : '✓'}
+          </span>
         </Button>
-      )}
+      </motion.div>
     </div>
   );
 }

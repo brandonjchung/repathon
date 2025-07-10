@@ -6,7 +6,7 @@ import WorkoutTracker from '../components/workout/WorkoutTracker';
 export default function Home() {
   return (
     <AuthWrapper>
-      {(user) => <WorkoutTracker user={user} />}
+      {(user, onSignOut) => <WorkoutTracker user={user} onSignOut={onSignOut} />}
     </AuthWrapper>
   );
 }
