@@ -1,5 +1,10 @@
 import Button from '../ui/Button';
-import { User } from '../../lib/supabase';
+
+// Temporary User type until MCP integration is complete
+interface User {
+  id: string;
+  email: string;
+}
 
 interface WorkoutNavigationProps {
   isAudioMuted: boolean;

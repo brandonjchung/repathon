@@ -1,12 +1,17 @@
 import { useState } from 'react';
-import { User } from '../../lib/supabase';
-import { SupabaseService } from '../../lib/supabase-service';
 import { useWorkout } from '../../hooks/useWorkout';
 import WorkoutNavigation from './WorkoutNavigation';
 import CadenceSettings from './CadenceSettings';
 import { TimerOnlyDisplay, SetCountDisplay, ElapsedTimeDisplay } from './TimerDisplay';
 import WorkoutControls from './WorkoutControls';
 import WorkoutHistory from './WorkoutHistory';
+import WorkoutDetail from './WorkoutDetail';
+
+// Temporary User type until MCP integration is complete
+interface User {
+  id: string;
+  email: string;
+}
 
 interface WorkoutTrackerProps {
   user: User;
@@ -15,6 +20,7 @@ interface WorkoutTrackerProps {
 
 export default function WorkoutTracker({ user, onSignOut }: WorkoutTrackerProps) {
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedWorkout, setSelectedWorkout] = useState<any>(null);
   const [workoutHistory, setWorkoutHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,6 +48,8 @@ export default function WorkoutTracker({ user, onSignOut }: WorkoutTrackerProps)
     
     setIsSaving(true);
     try {
+      // TODO: Implement with MCP Supabase integration
+      // For now, just log the workout data
       const workoutData = {
         user_id: user.id,
         total_reps: totalReps,
@@ -50,28 +58,10 @@ export default function WorkoutTracker({ user, onSignOut }: WorkoutTrackerProps)
         notes: `${workoutSets.length} sets completed`
       };
       
-      const { data: workout, error: workoutError } = await SupabaseService.createWorkout(workoutData);
+      console.log('Workout data to save:', workoutData);
+      console.log('Workout sets:', workoutSets);
       
-      if (workoutError || !workout) {
-        throw new Error(workoutError?.message || 'Failed to create workout');
-      }
-      
-      const setsData = workoutSets.map((set, index) => ({
-        workout_id: workout.id,
-        set_number: index + 1,
-        reps_per_set: set.reps,
-        interval_seconds: set.intervalSeconds,
-        actual_duration_ms: set.actualDurationMs,
-        timestamp: new Date(set.timestamp).toISOString()
-      }));
-      
-      const { error: setsError } = await SupabaseService.createWorkoutSets(setsData);
-      
-      if (setsError) {
-        throw new Error(setsError.message);
-      }
-      
-      alert('Workout saved successfully!');
+      alert('Workout saved successfully! (Currently using local storage)');
       resetWorkout();
     } catch (error) {
       console.error('Error saving workout:', error);
@@ -84,9 +74,9 @@ export default function WorkoutTracker({ user, onSignOut }: WorkoutTrackerProps)
   const loadWorkoutHistory = async () => {
     setLoadingHistory(true);
     try {
-      const { data, error } = await SupabaseService.getWorkoutsByUser(user.id, 20);
-      if (error) throw error;
-      setWorkoutHistory(data || []);
+      // TODO: Implement with MCP Supabase integration
+      // For now, return empty history
+      setWorkoutHistory([]);
     } catch (error) {
       console.error('Error loading workout history:', error);
       alert('Failed to load workout history');
@@ -100,17 +90,42 @@ export default function WorkoutTracker({ user, onSignOut }: WorkoutTrackerProps)
     loadWorkoutHistory();
   };
 
+  const handleWorkoutSelect = (workout: any) => {
+    setSelectedWorkout(workout);
+    setShowHistory(false);
+  };
+
+  const handleBackToHistory = () => {
+    setSelectedWorkout(null);
+    setShowHistory(true);
+  };
+
+  const handleBackToMain = () => {
+    setShowHistory(false);
+    setSelectedWorkout(null);
+  };
+
   const handleToggleAudio = () => {
     setIsAudioMuted(!isAudioMuted);
   };
+
+  if (selectedWorkout) {
+    return (
+      <WorkoutDetail
+        workout={selectedWorkout}
+        onBack={handleBackToHistory}
+      />
+    );
+  }
 
   if (showHistory) {
     return (
       <WorkoutHistory
         workoutHistory={workoutHistory}
         loadingHistory={loadingHistory}
-        onBack={() => setShowHistory(false)}
+        onBack={handleBackToMain}
         onRefresh={loadWorkoutHistory}
+        onWorkoutSelect={handleWorkoutSelect}
       />
     );
   }

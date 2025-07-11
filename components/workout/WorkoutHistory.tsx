@@ -6,13 +6,15 @@ interface WorkoutHistoryProps {
   loadingHistory: boolean;
   onBack: () => void;
   onRefresh: () => void;
+  onWorkoutSelect: (workout: any) => void;
 }
 
 export default function WorkoutHistory({ 
   workoutHistory, 
   loadingHistory, 
   onBack, 
-  onRefresh 
+  onRefresh,
+  onWorkoutSelect 
 }: WorkoutHistoryProps) {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 pt-16">
@@ -41,7 +43,11 @@ export default function WorkoutHistory({
         ) : (
           <div className="space-y-4">
             {workoutHistory.map((workout) => (
-              <div key={workout.id} className="bg-gray-800 p-4 rounded-lg">
+              <div 
+                key={workout.id} 
+                className="bg-gray-800 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
+                onClick={() => onWorkoutSelect(workout)}
+              >
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <div className="text-lg font-bold text-green-400">

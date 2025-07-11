@@ -1,8 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SupabaseService } from '../lib/supabase-service';
-import { User } from '../lib/supabase';
+
+// Temporary User type until MCP integration is complete
+interface User {
+  id: string;
+  email: string;
+}
 
 interface AuthWrapperProps {
   children: (user: User, onSignOut: () => void) => React.ReactNode;
@@ -22,8 +26,9 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
 
   const checkUser = async () => {
     try {
-      const currentUser = await SupabaseService.getCurrentUser();
-      setUser(currentUser);
+      // TODO: Implement with MCP Supabase integration
+      // For now, skip authentication
+      setUser({ id: 'temp-user', email: 'temp@example.com' });
     } catch (error) {
       console.error('Error checking user:', error);
     } finally {
@@ -37,19 +42,9 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const { data, error } = await SupabaseService.signIn(email, password);
-        if (error) throw error;
-        setUser(data.user);
-      } else {
-        const { data, error } = await SupabaseService.signUp(email, password);
-        if (error) throw error;
-        if (data.user) {
-          setUser(data.user);
-        } else {
-          setError('Please check your email to confirm your account');
-        }
-      }
+      // TODO: Implement with MCP Supabase integration
+      // For now, simulate successful auth
+      setUser({ id: 'temp-user', email: email });
     } catch (error: any) {
       setError(error.message || 'Authentication failed');
     } finally {
@@ -59,7 +54,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
 
   const handleSignOut = async () => {
     try {
-      await SupabaseService.signOut();
+      // TODO: Implement with MCP Supabase integration
       setUser(null);
     } catch (error) {
       console.error('Error signing out:', error);
