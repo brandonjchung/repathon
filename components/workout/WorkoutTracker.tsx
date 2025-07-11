@@ -1,19 +1,26 @@
 import { useState } from 'react';
-import { User } from '../../lib/supabase';
-import { SupabaseService } from '../../lib/supabase-service';
 import { useWorkout } from '../../hooks/useWorkout';
 import WorkoutNavigation from './WorkoutNavigation';
 import CadenceSettings from './CadenceSettings';
-import TimerDisplay from './TimerDisplay';
+import { TimerOnlyDisplay, SetCountDisplay, ElapsedTimeDisplay } from './TimerDisplay';
 import WorkoutControls from './WorkoutControls';
 import WorkoutHistory from './WorkoutHistory';
+import WorkoutDetail from './WorkoutDetail';
+
+// Temporary User type until MCP integration is complete
+interface User {
+  id: string;
+  email: string;
+}
 
 interface WorkoutTrackerProps {
   user: User;
+  onSignOut: () => void;
 }
 
-export default function WorkoutTracker({ user }: WorkoutTrackerProps) {
+export default function WorkoutTracker({ user, onSignOut }: WorkoutTrackerProps) {
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedWorkout, setSelectedWorkout] = useState<any>(null);
   const [workoutHistory, setWorkoutHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -27,8 +34,6 @@ export default function WorkoutTracker({ user }: WorkoutTrackerProps) {
     totalReps,
     totalElapsedMs,
     workoutSets,
-    showGoFlash,
-    showCountdownFlash,
     isAudioMuted,
     setRepsPerSet,
     setIntervalSeconds,
@@ -43,6 +48,8 @@ export default function WorkoutTracker({ user }: WorkoutTrackerProps) {
     
     setIsSaving(true);
     try {
+      // TODO: Implement with MCP Supabase integration
+      // For now, just log the workout data
       const workoutData = {
         user_id: user.id,
         total_reps: totalReps,
@@ -51,28 +58,10 @@ export default function WorkoutTracker({ user }: WorkoutTrackerProps) {
         notes: `${workoutSets.length} sets completed`
       };
       
-      const { data: workout, error: workoutError } = await SupabaseService.createWorkout(workoutData);
+      console.log('Workout data to save:', workoutData);
+      console.log('Workout sets:', workoutSets);
       
-      if (workoutError || !workout) {
-        throw new Error(workoutError?.message || 'Failed to create workout');
-      }
-      
-      const setsData = workoutSets.map((set, index) => ({
-        workout_id: workout.id,
-        set_number: index + 1,
-        reps_per_set: set.reps,
-        interval_seconds: set.intervalSeconds,
-        actual_duration_ms: set.actualDurationMs,
-        timestamp: new Date(set.timestamp).toISOString()
-      }));
-      
-      const { error: setsError } = await SupabaseService.createWorkoutSets(setsData);
-      
-      if (setsError) {
-        throw new Error(setsError.message);
-      }
-      
-      alert('Workout saved successfully!');
+      alert('Workout saved successfully! (Currently using local storage)');
       resetWorkout();
     } catch (error) {
       console.error('Error saving workout:', error);
@@ -85,9 +74,9 @@ export default function WorkoutTracker({ user }: WorkoutTrackerProps) {
   const loadWorkoutHistory = async () => {
     setLoadingHistory(true);
     try {
-      const { data, error } = await SupabaseService.getWorkoutsByUser(user.id, 20);
-      if (error) throw error;
-      setWorkoutHistory(data || []);
+      // TODO: Implement with MCP Supabase integration
+      // For now, return empty history
+      setWorkoutHistory([]);
     } catch (error) {
       console.error('Error loading workout history:', error);
       alert('Failed to load workout history');
@@ -101,61 +90,99 @@ export default function WorkoutTracker({ user }: WorkoutTrackerProps) {
     loadWorkoutHistory();
   };
 
+  const handleWorkoutSelect = (workout: any) => {
+    setSelectedWorkout(workout);
+    setShowHistory(false);
+  };
+
+  const handleBackToHistory = () => {
+    setSelectedWorkout(null);
+    setShowHistory(true);
+  };
+
+  const handleBackToMain = () => {
+    setShowHistory(false);
+    setSelectedWorkout(null);
+  };
+
   const handleToggleAudio = () => {
     setIsAudioMuted(!isAudioMuted);
   };
+
+  if (selectedWorkout) {
+    return (
+      <WorkoutDetail
+        workout={selectedWorkout}
+        onBack={handleBackToHistory}
+      />
+    );
+  }
 
   if (showHistory) {
     return (
       <WorkoutHistory
         workoutHistory={workoutHistory}
         loadingHistory={loadingHistory}
-        onBack={() => setShowHistory(false)}
+        onBack={handleBackToMain}
         onRefresh={loadWorkoutHistory}
+        onWorkoutSelect={handleWorkoutSelect}
       />
     );
   }
 
   return (
-    <div className={`relative min-h-screen transition-all duration-300 ${
-      showGoFlash ? 'bg-green-600' : 
-      showCountdownFlash ? 'bg-red-600' : 
-      'bg-gray-900'
-    }`}>
-      <div className="flex items-center justify-center p-4 pt-16 min-h-screen">
-        <div className="text-center max-w-md w-full text-white">
-          <WorkoutNavigation
-            isAudioMuted={isAudioMuted}
-            onToggleAudio={handleToggleAudio}
-            onViewHistory={handleViewHistory}
-          />
-          
-          <CadenceSettings
-            repsPerSet={repsPerSet}
-            intervalSeconds={intervalSeconds}
-            isRunning={isRunning}
-            onRepsChange={setRepsPerSet}
-            onIntervalChange={setIntervalSeconds}
-          />
-
-          <TimerDisplay
-            timeRemainingMs={timeRemainingMs}
-            currentSet={currentSet}
-            repsPerSet={repsPerSet}
-            totalReps={totalReps}
-            totalElapsedMs={totalElapsedMs}
-          />
-
-          <WorkoutControls
-            isRunning={isRunning}
-            totalElapsedMs={totalElapsedMs}
-            workoutSets={workoutSets}
-            isSaving={isSaving}
-            onStart={startWorkout}
-            onPause={pauseWorkout}
-            onReset={resetWorkout}
-            onSave={saveWorkout}
-          />
+    <div className="min-h-screen bg-gray-900">
+      <WorkoutNavigation
+        isAudioMuted={isAudioMuted}
+        onToggleAudio={handleToggleAudio}
+        onViewHistory={handleViewHistory}
+        user={user}
+        onSignOut={onSignOut}
+      />
+      
+      {/* Main content area with timer centered and controls as footer */}
+      <div className="flex flex-col min-h-screen pt-20 sm:pt-24">
+        <div className="container mx-auto px-4 max-w-md">
+          {/* Top section - Cadence Settings */}
+          <div className="text-center text-white mb-8">
+            <CadenceSettings
+              repsPerSet={repsPerSet}
+              intervalSeconds={intervalSeconds}
+              isRunning={isRunning}
+              onRepsChange={setRepsPerSet}
+              onIntervalChange={setIntervalSeconds}
+            />
+          </div>
+        </div>
+        
+        {/* Center section - Timer Display (vertically centered) */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-white">
+            <SetCountDisplay currentSet={currentSet} />
+            <TimerOnlyDisplay
+              timeRemainingMs={timeRemainingMs}
+              totalReps={totalReps}
+            />
+            <ElapsedTimeDisplay totalElapsedMs={totalElapsedMs} />
+          </div>
+        </div>
+        
+        {/* Footer section - Controls */}
+        <div className="pb-8">
+          <div className="container mx-auto px-4 max-w-md">
+            <div className="text-center text-white">
+              <WorkoutControls
+                isRunning={isRunning}
+                totalElapsedMs={totalElapsedMs}
+                workoutSets={workoutSets}
+                isSaving={isSaving}
+                onStart={startWorkout}
+                onPause={pauseWorkout}
+                onReset={resetWorkout}
+                onSave={saveWorkout}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -18,8 +18,6 @@ export interface UseWorkoutReturn {
   totalReps: number;
   totalElapsedMs: number;
   workoutSets: WorkoutSet[];
-  showGoFlash: boolean;
-  showCountdownFlash: boolean;
   isAudioMuted: boolean;
   
   // Actions
@@ -45,8 +43,6 @@ export const useWorkout = (): UseWorkoutReturn => {
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [setStartTime, setSetStartTime] = useState<number | null>(null);
   const [workoutSets, setWorkoutSets] = useState<WorkoutSet[]>([]);
-  const [showGoFlash, setShowGoFlash] = useState(false);
-  const [showCountdownFlash, setShowCountdownFlash] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   
   // Refs for stable references
@@ -87,34 +83,26 @@ export const useWorkout = (): UseWorkoutReturn => {
         const now = Date.now();
         const elapsed = now - (setStartTime || now);
         const remaining = (intervalSecondsRef.current * 1000) - elapsed;
-        
-        // Trigger countdown beeps at 2, 1, 0 seconds remaining
         const secondsRemaining = Math.ceil(remaining / 1000);
-        if (secondsRemaining <= 2 && secondsRemaining >= 0 && remaining > 0) {
-          if (!countdownTriggeredRef.current.has(secondsRemaining)) {
-            countdownTriggeredRef.current.add(secondsRemaining);
-            audioManagerRef.current.playCountdownBeep(secondsRemaining);
-            // Visual feedback for countdown
-            if (secondsRemaining === 2 || secondsRemaining === 1) {
-              setShowCountdownFlash(true);
-              setTimeout(() => setShowCountdownFlash(false), 200);
+        
+        // Show full seconds countdown (3, 2, 1) then loop
+        if (secondsRemaining > 0) {
+          setTimeRemainingMs(secondsRemaining * 1000);
+          
+          // Trigger countdown beeps at 3, 2, 1 seconds remaining
+          if (secondsRemaining <= 3 && secondsRemaining >= 1) {
+            if (!countdownTriggeredRef.current.has(secondsRemaining)) {
+              countdownTriggeredRef.current.add(secondsRemaining);
+              audioManagerRef.current.playCountdownBeep(secondsRemaining);
             }
           }
-        }
-        
-        if (remaining <= 0 && !hasTriggeredRef.current) {
-          // Play the "0" beep before completing the set
-          if (!countdownTriggeredRef.current.has(0)) {
-            countdownTriggeredRef.current.add(0);
-            audioManagerRef.current.playCountdownBeep(0);
-            // Trigger green flash for "Go!"
-            setShowGoFlash(true);
-            setTimeout(() => setShowGoFlash(false), 300);
-          }
-          
+        } else if (!hasTriggeredRef.current) {
           // Time's up - complete the set (only once)
           hasTriggeredRef.current = true;
           const actualDuration = now - (setStartTime || now);
+          
+          // Play "Go!" sound
+          audioManagerRef.current.playGoSound();
           
           // Record the completed set
           setWorkoutSets(prev => [...prev, {
@@ -130,10 +118,8 @@ export const useWorkout = (): UseWorkoutReturn => {
           setTimeRemainingMs(intervalSecondsRef.current * 1000);
           hasTriggeredRef.current = false;
           countdownTriggeredRef.current.clear();
-        } else if (remaining > 0) {
-          setTimeRemainingMs(remaining);
         }
-      }, 10);
+      }, 100);
     }
 
     return () => {
@@ -149,7 +135,7 @@ export const useWorkout = (): UseWorkoutReturn => {
     if (workoutStartTime) {
       elapsedRef.current = setInterval(() => {
         setTotalElapsedMs(Date.now() - workoutStartTime);
-      }, 10);
+      }, 1000);
     } else if (elapsedRef.current) {
       clearInterval(elapsedRef.current);
     }
@@ -196,8 +182,6 @@ export const useWorkout = (): UseWorkoutReturn => {
     totalReps,
     totalElapsedMs,
     workoutSets,
-    showGoFlash,
-    showCountdownFlash,
     isAudioMuted,
     
     // Actions

@@ -46,4 +46,27 @@ export class AudioManager {
     oscillator.start(this.audioContext.currentTime);
     oscillator.stop(this.audioContext.currentTime + 0.2);
   }
+
+  playGoSound(): void {
+    if (this.isMuted || !this.audioContext) return;
+
+    const oscillator = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+
+    // Upbeat "Go!" sound with rising tone
+    oscillator.frequency.setValueAtTime(440, this.audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(880, this.audioContext.currentTime + 0.3);
+    oscillator.type = 'triangle';
+
+    // Energetic volume envelope
+    gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.05);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+
+    oscillator.start(this.audioContext.currentTime);
+    oscillator.stop(this.audioContext.currentTime + 0.3);
+  }
 }
