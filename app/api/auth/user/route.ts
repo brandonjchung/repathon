@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 export async function GET(request: NextRequest) {
   try {
     // Get the session token from cookies
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionToken = cookieStore.get('supabase-auth-token')?.value;
     
     if (!sessionToken) {
