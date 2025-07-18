@@ -50,6 +50,7 @@ export const useWorkout = (): UseWorkoutReturn => {
   const elapsedRef = useRef<NodeJS.Timeout | null>(null);
   const repsPerSetRef = useRef(repsPerSet);
   const intervalSecondsRef = useRef(intervalSeconds);
+  const currentSetIntervalRef = useRef(intervalSeconds);
   const hasTriggeredRef = useRef(false);
   const countdownTriggeredRef = useRef<Set<number>>(new Set());
   const audioManagerRef = useRef<AudioManager>(new AudioManager());
@@ -64,6 +65,8 @@ export const useWorkout = (): UseWorkoutReturn => {
     if (!isRunning && !workoutStartTime) {
       setTimeRemainingMs(intervalSeconds * 1000);
     }
+    // Note: When running, interval changes only affect the next set
+    // Current set continues with its original interval duration
   }, [intervalSeconds, isRunning, workoutStartTime]);
 
   // Update audio muted state
@@ -82,7 +85,7 @@ export const useWorkout = (): UseWorkoutReturn => {
       intervalRef.current = setInterval(() => {
         const now = Date.now();
         const elapsed = now - (setStartTime || now);
-        const remaining = (intervalSecondsRef.current * 1000) - elapsed;
+        const remaining = (currentSetIntervalRef.current * 1000) - elapsed;
         const secondsRemaining = Math.ceil(remaining / 1000);
         
         // Show full seconds countdown (3, 2, 1) then loop
@@ -107,7 +110,7 @@ export const useWorkout = (): UseWorkoutReturn => {
           // Record the completed set
           setWorkoutSets(prev => [...prev, {
             reps: repsPerSetRef.current,
-            intervalSeconds: intervalSecondsRef.current,
+            intervalSeconds: currentSetIntervalRef.current,
             actualDurationMs: actualDuration,
             timestamp: now
           }]);
@@ -115,6 +118,8 @@ export const useWorkout = (): UseWorkoutReturn => {
           setTotalReps(current => current + repsPerSetRef.current);
           setCurrentSet(current => current + 1);
           setSetStartTime(now);
+          // Use the new interval value for the next set
+          currentSetIntervalRef.current = intervalSecondsRef.current;
           setTimeRemainingMs(intervalSecondsRef.current * 1000);
           hasTriggeredRef.current = false;
           countdownTriggeredRef.current.clear();
@@ -151,6 +156,8 @@ export const useWorkout = (): UseWorkoutReturn => {
     setIsRunning(true);
     if (!workoutStartTime) {
       setWorkoutStartTime(Date.now());
+      // Lock in the current interval for the first set
+      currentSetIntervalRef.current = intervalSecondsRef.current;
     }
     if (!setStartTime) {
       setSetStartTime(Date.now());

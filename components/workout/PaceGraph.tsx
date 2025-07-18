@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+
 interface WorkoutSet {
   reps: number;
   intervalSeconds: number;
@@ -11,17 +13,36 @@ interface PaceGraphProps {
 }
 
 export default function PaceGraph({ workoutSets, workoutStartTime }: PaceGraphProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 600, height: 300 });
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth - 32; // Account for padding
+        const containerHeight = Math.max(300, Math.min(400, containerWidth * 0.5)); // Responsive height
+        setDimensions({ 
+          width: Math.max(400, containerWidth), // Minimum width for readability
+          height: containerHeight 
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
   if (!workoutSets.length) {
     return (
-      <div className="h-64 bg-gray-700 rounded flex items-center justify-center">
+      <div ref={containerRef} className="h-64 bg-gray-700 rounded flex items-center justify-center">
         <div className="text-gray-400">No workout data available</div>
       </div>
     );
   }
 
-  const width = 400;
-  const height = 200;
-  const padding = 40;
+  const { width, height } = dimensions;
+  const padding = 50;
   const graphWidth = width - 2 * padding;
   const graphHeight = height - 2 * padding;
 
@@ -32,12 +53,35 @@ export default function PaceGraph({ workoutSets, workoutStartTime }: PaceGraphPr
   
   const totalDuration = workoutSets[workoutSets.length - 1].timestamp - workoutStartTime;
   
-  const points = workoutSets.map((set, index) => {
+  // For large datasets (100+ points), sample or aggregate data for better performance and readability
+  const shouldSample = workoutSets.length > 100;
+  const displaySets = shouldSample ? sampleData(workoutSets, 50) : workoutSets;
+  
+  const points = displaySets.map((set, index) => {
     const timeOffset = set.timestamp - workoutStartTime;
     const x = padding + (timeOffset / totalDuration) * graphWidth;
     const y = padding + graphHeight - ((set.reps - minReps) / repsRange) * graphHeight;
     return { x, y, reps: set.reps, index };
   });
+
+  // Sample data function for large datasets
+  function sampleData(data: WorkoutSet[], maxPoints: number) {
+    if (data.length <= maxPoints) return data;
+    
+    const step = Math.floor(data.length / maxPoints);
+    const sampled = [];
+    
+    for (let i = 0; i < data.length; i += step) {
+      sampled.push(data[i]);
+    }
+    
+    // Always include the last point
+    if (sampled[sampled.length - 1] !== data[data.length - 1]) {
+      sampled.push(data[data.length - 1]);
+    }
+    
+    return sampled;
+  }
 
   // Create path string for the line
   const pathData = points.reduce((path, point, index) => {
@@ -67,9 +111,17 @@ export default function PaceGraph({ workoutSets, workoutStartTime }: PaceGraphPr
   }
 
   return (
-    <div className="h-64 bg-gray-700 rounded p-4">
-      <h4 className="text-sm font-medium text-gray-300 mb-2">Reps per Set Over Time</h4>
-      <svg width={width} height={height} className="text-gray-300">
+    <div ref={containerRef} className="bg-gray-700 rounded p-4">
+      <div className="flex justify-between items-center mb-2">
+        <h4 className="text-sm font-medium text-gray-300">Reps per Set Over Time</h4>
+        {shouldSample && (
+          <span className="text-xs text-gray-400">
+            Showing {displaySets.length} of {workoutSets.length} sets
+          </span>
+        )}
+      </div>
+      <div className="w-full overflow-x-auto">
+        <svg width={width} height={height} className="text-gray-300">
         {/* Grid lines */}
         <defs>
           <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -122,7 +174,8 @@ export default function PaceGraph({ workoutSets, workoutStartTime }: PaceGraphPr
         <text x={15} y={padding + graphHeight / 2} textAnchor="middle" className="text-xs fill-gray-400" transform={`rotate(-90 15 ${padding + graphHeight / 2})`}>
           Reps
         </text>
-      </svg>
+        </svg>
+      </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { TimerOnlyDisplay, SetCountDisplay, ElapsedTimeDisplay } from './TimerDi
 import WorkoutControls from './WorkoutControls';
 import WorkoutHistory from './WorkoutHistory';
 import WorkoutDetail from './WorkoutDetail';
+import { supabase } from '../../lib/supabase-client';
 
 // Temporary User type until MCP integration is complete
 interface User {
@@ -48,8 +49,7 @@ export default function WorkoutTracker({ user, onSignOut }: WorkoutTrackerProps)
     
     setIsSaving(true);
     try {
-      // TODO: Implement with MCP Supabase integration
-      // For now, just log the workout data
+      // Use Supabase client directly with authenticated session
       const workoutData = {
         user_id: user.id,
         total_reps: totalReps,
@@ -58,10 +58,44 @@ export default function WorkoutTracker({ user, onSignOut }: WorkoutTrackerProps)
         notes: `${workoutSets.length} sets completed`
       };
       
-      console.log('Workout data to save:', workoutData);
-      console.log('Workout sets:', workoutSets);
+      console.log('Saving workout with Supabase client:', workoutData);
       
-      alert('Workout saved successfully! (Currently using local storage)');
+      // Insert workout
+      const { data: workoutResult, error: workoutError } = await supabase
+        .from('workouts')
+        .insert(workoutData)
+        .select('id')
+        .single();
+      
+      if (workoutError) {
+        console.error('Workout insert error:', workoutError);
+        throw new Error(`Failed to save workout: ${workoutError.message}`);
+      }
+      
+      const workoutId = workoutResult.id;
+      console.log('Workout saved with ID:', workoutId);
+      
+      // Insert workout sets
+      const workoutSetsData = workoutSets.map((set, index) => ({
+        workout_id: workoutId,
+        set_number: index + 1,
+        reps_per_set: set.reps,
+        interval_seconds: set.intervalSeconds,
+        actual_duration_ms: set.actualDurationMs,
+        timestamp: new Date(set.timestamp).toISOString()
+      }));
+      
+      const { error: setsError } = await supabase
+        .from('workout_sets')
+        .insert(workoutSetsData);
+      
+      if (setsError) {
+        console.error('Workout sets insert error:', setsError);
+        throw new Error(`Failed to save workout sets: ${setsError.message}`);
+      }
+      
+      console.log('All workout sets saved successfully');
+      alert('Workout saved successfully!');
       resetWorkout();
     } catch (error) {
       console.error('Error saving workout:', error);
@@ -74,9 +108,57 @@ export default function WorkoutTracker({ user, onSignOut }: WorkoutTrackerProps)
   const loadWorkoutHistory = async () => {
     setLoadingHistory(true);
     try {
-      // TODO: Implement with MCP Supabase integration
-      // For now, return empty history
-      setWorkoutHistory([]);
+      console.log('Loading workout history for user:', user.id);
+      
+      // Load workouts using Supabase client with authenticated session
+      const { data: workouts, error: workoutsError } = await supabase
+        .from('workouts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('session_date', { ascending: false });
+      
+      if (workoutsError) {
+        console.error('Error loading workouts:', workoutsError);
+        throw new Error(`Failed to load workouts: ${workoutsError.message}`);
+      }
+      
+      console.log(`Loaded ${workouts.length} workouts`);
+      
+      // Load workout sets for each workout
+      const workoutsWithSets = await Promise.all(
+        workouts.map(async (workout) => {
+          const { data: sets, error: setsError } = await supabase
+            .from('workout_sets')
+            .select('*')
+            .eq('workout_id', workout.id)
+            .order('set_number', { ascending: true });
+          
+          if (setsError) {
+            console.error(`Error loading sets for workout ${workout.id}:`, setsError);
+            return {
+              ...workout,
+              workout_sets: []
+            };
+          }
+          
+          // Transform sets to match expected format
+          const transformedSets = sets.map((set) => ({
+            set_number: set.set_number,
+            reps: set.reps_per_set,
+            intervalSeconds: set.interval_seconds,
+            actualDurationMs: set.actual_duration_ms,
+            timestamp: new Date(set.timestamp).getTime()
+          }));
+          
+          return {
+            ...workout,
+            workout_sets: transformedSets
+          };
+        })
+      );
+      
+      console.log('Successfully loaded workout history with sets');
+      setWorkoutHistory(workoutsWithSets);
     } catch (error) {
       console.error('Error loading workout history:', error);
       alert('Failed to load workout history');

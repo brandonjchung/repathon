@@ -42,13 +42,13 @@ export default function CadenceSettings({
   };
 
   const incrementInterval = () => {
-    if (intervalSeconds < 600 && !isRunning) {
+    if (intervalSeconds < 600) {
       onIntervalChange(intervalSeconds + 1);
     }
   };
 
   const decrementInterval = () => {
-    if (intervalSeconds > 0 && !isRunning) {
+    if (intervalSeconds > 0) {
       onIntervalChange(intervalSeconds - 1);
     }
   };
@@ -96,13 +96,12 @@ export default function CadenceSettings({
             min="0"
             max="600"
             placeholder="0"
-            disabled={isRunning}
-            className="w-full bg-gray-700 text-white px-2 md:px-3 py-1.5 md:py-2 rounded disabled:opacity-50 text-center text-sm md:text-base"
+            className="w-full bg-gray-700 text-white px-2 md:px-3 py-1.5 md:py-2 rounded text-center text-sm md:text-base"
           />
           <div className="flex items-center gap-1.5 md:gap-2 mt-1.5 md:mt-2">
             <button
               onClick={decrementInterval}
-              disabled={intervalSeconds <= 0 || isRunning}
+              disabled={intervalSeconds <= 0}
               className="flex-1 h-8 md:h-10 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:opacity-50 text-white rounded flex items-center justify-center font-bold text-base md:text-lg"
               aria-label="Decrease interval seconds"
             >
@@ -110,7 +109,7 @@ export default function CadenceSettings({
             </button>
             <button
               onClick={incrementInterval}
-              disabled={intervalSeconds >= 600 || isRunning}
+              disabled={intervalSeconds >= 600}
               className="flex-1 h-8 md:h-10 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:opacity-50 text-white rounded flex items-center justify-center font-bold text-base md:text-lg"
               aria-label="Increase interval seconds"
             >
