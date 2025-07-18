@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase-client';
 
 // Temporary User type until MCP integration is complete
 interface User {
@@ -22,15 +23,44 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
 
   useEffect(() => {
     checkUser();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email || ''
+          });
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      }
+    );
+    
+    return () => subscription.unsubscribe();
   }, []);
 
   const checkUser = async () => {
     try {
-      // TODO: Implement with MCP Supabase integration
-      // For now, skip authentication
-      setUser({ id: 'temp-user', email: 'temp@example.com' });
+      // Get the current authenticated user from Supabase
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('Error getting user:', error);
+        setUser(null);
+      } else if (user) {
+        setUser({
+          id: user.id,
+          email: user.email || ''
+        });
+      } else {
+        setUser(null);
+      }
     } catch (error) {
       console.error('Error checking user:', error);
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -42,9 +72,21 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     setLoading(true);
 
     try {
-      // TODO: Implement with MCP Supabase integration
-      // For now, simulate successful auth
-      setUser({ id: 'temp-user', email: email });
+      // Authenticate user with Supabase
+      const { data, error } = isLogin 
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({ email, password });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (data.user) {
+        setUser({
+          id: data.user.id,
+          email: data.user.email || ''
+        });
+      }
     } catch (error: any) {
       setError(error.message || 'Authentication failed');
     } finally {
@@ -54,10 +96,14 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
 
   const handleSignOut = async () => {
     try {
-      // TODO: Implement with MCP Supabase integration
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+      }
       setUser(null);
     } catch (error) {
       console.error('Error signing out:', error);
+      setUser(null); // Sign out locally even if API fails
     }
   };
 

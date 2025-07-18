@@ -72,9 +72,24 @@ Follow Red-Green-Refactor strictly:
 
 ### Development Workflow
 - **Small, incremental changes** that maintain working state
-- **Conventional commits**: `feat:`, `fix:`, `refactor:`, `test:`
+- **Ticket-based commits**: Use `REP-{number}:` format followed by descriptive message
 - **No Claude attribution in commit messages** - focus on technical changes only
 - Each commit represents complete, working change with passing tests
+
+#### Commit Message Format
+Follow the established pattern:
+```
+REP-{ticket-number}: Brief description of changes
+
+Detailed explanation if needed, including:
+- Key features implemented
+- Technical improvements
+- Bug fixes or refactoring
+```
+
+Examples:
+- `REP-25: Enhanced UI/UX with responsive design and framer-motion animations`
+- `REP-24: Project Refactoring - Break down monolithic components into modular architecture`
 
 ### Git Worktree Management
 
