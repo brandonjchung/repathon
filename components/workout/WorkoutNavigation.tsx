@@ -1,4 +1,5 @@
 import Button from '../ui/Button';
+import { BarChart3, VolumeX, Volume2 } from 'lucide-react';
 
 // Temporary User type until MCP integration is complete
 interface User {
@@ -37,7 +38,7 @@ export default function WorkoutNavigation({
                 className="bg-purple-600 hover:bg-purple-700"
               >
                 <span className="hidden sm:inline">History</span>
-                <span className="sm:hidden">📊</span>
+                <span className="sm:hidden"><BarChart3 size={16} /></span>
               </Button>
               
               <Button
@@ -45,7 +46,7 @@ export default function WorkoutNavigation({
                 size="sm"
                 onClick={onToggleAudio}
               >
-                {isAudioMuted ? '🔇' : '🔊'}
+                {isAudioMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
               </Button>
               
               <Button
