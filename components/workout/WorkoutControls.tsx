@@ -3,6 +3,7 @@ import Button from '../ui/Button';
 import { WorkoutSet } from '../../hooks/useWorkout';
 import { motion } from 'framer-motion';
 import ConfirmationModal from '../ui/ConfirmationModal';
+import { Play, Pause, RotateCcw, Check, MoreHorizontal } from 'lucide-react';
 
 interface WorkoutControlsProps {
   isRunning: boolean;
@@ -64,9 +65,7 @@ export default function WorkoutControls({
             onClick={isRunning ? onPause : onStart}
             className="w-16 flex justify-center items-center"
           >
-            <span className="text-2xl">
-              {isRunning ? '⏸' : '▶'}
-            </span>
+            {isRunning ? <Pause size={24} /> : <Play size={24} />}
           </Button>
         </motion.div>
         
@@ -80,7 +79,7 @@ export default function WorkoutControls({
             size="lg"
             onClick={handleResetClick}
           >
-            <span className="text-2xl">⟲</span>
+            <RotateCcw size={24} />
           </Button>
         </motion.div>
         
@@ -95,9 +94,7 @@ export default function WorkoutControls({
             onClick={handleSaveClick}
             disabled={isSaving || isRunning || workoutSets.length === 0}
           >
-            <span className="text-2xl">
-              {isSaving ? '⋯' : '✓'}
-            </span>
+            {isSaving ? <MoreHorizontal size={24} /> : <Check size={24} />}
           </Button>
         </motion.div>
       </div>
